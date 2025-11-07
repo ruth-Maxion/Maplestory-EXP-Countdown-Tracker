@@ -532,6 +532,8 @@ body.light .modal-content {
 }
 .modal-content h3 { margin-top: 0; }
 
+/* small style for modal input buttons */
+.modal .controls { margin-top: 14px; }
 </style>
 </head>
 <body>
@@ -589,14 +591,16 @@ body.light .modal-content {
       </div>
       <div class="card-group">
         <div class="report-grid">
+          <!-- Reordered as requested -->
           <div class="report-item"><span class="label">Starting EXP</span><span class="value" id="resStart">—</span></div>
           <div class="report-item"><span class="label">Ending EXP</span><span class="value" id="resEnd">—</span></div>
           <div class="report-item"><span class="label">Total EXP Gained</span><span class="value" id="resTotal">—</span></div>
           <div class="report-item"><span class="label">EXP / Hour (Rate)</span><span class="value" id="resHour">—</span></div>
-          <div class="report-item best-rate"><span class="label">Best Rate / Hour</span><span class="value" id="resBestRate">—</span></div>
-          <div class="report-item rate-analysis"><span class="label">Avg Rate (Last 10)</span><span class="value" id="resAvgRate">—</span></div>
           <div class="report-item"><span class="label">EXP / 30 min</span><span class="value" id="res30">—</span></div>
           <div class="report-item"><span class="label">EXP / 10 min</span><span class="value" id="res10">—</span></div>
+          <div class="report-item"><span class="label">EXP / 1 min</span><span class="value" id="res1">—</span></div>
+          <div class="report-item best-rate"><span class="label">Best Rate / Hour</span><span class="value" id="resBestRate">—</span></div>
+          <div class="report-item rate-analysis"><span class="label">Avg Rate (Last 10)</span><span class="value" id="resAvgRate">—</span></div>
         </div>
       </div>
       
@@ -620,9 +624,9 @@ body.light .modal-content {
   <div class="foot">EXP Countdown Tracker • Made with ❤️ by Animal Guild</div>
 </div>
 
-<div id="expModal" class="modal">
-    <div class="modal-content card">
-        <h3>Time's Up! Enter Ending EXP</h3>
+<div id="expModal" class="modal" aria-hidden="true">
+    <div class="modal-content card" role="dialog" aria-modal="true" aria-labelledby="expModalTitle">
+        <h3 id="expModalTitle">Time's Up! Enter Ending EXP</h3>
         <div class="row"><label for="modalEndingExp">Ending EXP</label><input id="modalEndingExp" type="text" placeholder="Enter final EXP here"></div>
         <div class="controls" style="margin-top: 20px; justify-content: flex-end;">
             <button id="modalSubmitBtn" style="flex: 1;">Calculate</button>
@@ -630,7 +634,7 @@ body.light .modal-content {
     </div>
 </div>
 
-<div id="confirmModal" class="modal">
+<div id="confirmModal" class="modal" aria-hidden="true">
     <div class="modal-content card">
         <h3>Confirm Clear History</h3>
         <p>Are you sure you want to delete ALL recorded session history? This action cannot be undone.</p>
@@ -649,6 +653,7 @@ body.light .modal-content {
 <script>
 let totalSeconds=0, remainingSeconds=0, elapsedSeconds=0, timerInterval=null, preInterval=null;
 let historyData=[];
+let tempEndingExpValue = ""; // <-- store typed value while modal open
 
 const $timeDisplay=$('#timeDisplay');
 const $expModal = $('#expModal');
@@ -666,41 +671,46 @@ const DETAILS_KEY = 'exp_tracker_details';
 const HISTORY_KEY = 'exp_tracker_history';
 
 // Report fields (for Clear Report)
-const reportFields = ['resStart', 'resEnd', 'resTotal', 'resHour', 'res30', 'res10', 'resBestRate', 'resAvgRate'];
+const reportFields = ['resStart', 'resEnd', 'resTotal', 'resHour', 'res30', 'res10', 'res1', 'resBestRate', 'resAvgRate'];
 
 
 function playSound(audioElement) {
     if (audioElement) {
         audioElement.currentTime = 0; 
-        audioElement.play().catch(e => console.error("Audio play failed:", e));
+        audioElement.play().catch(e => {/* ignore autoplay errors */});
     }
 }
 
 function setProgress(percent) {
-    const progressWidth = Math.min(100, percent); 
+    const progressWidth = Math.min(100, Math.max(0, percent)); 
     $timerProgressLine.css('width', `${progressWidth}%`);
 }
 
 function fmtSeconds(s){ s=Math.max(0,Math.floor(s)); const h=Math.floor(s/3600).toString().padStart(2,'0'); const m=Math.floor((s%3600)/60).toString().padStart(2,'0'); const sec=Math.floor(s%60).toString().padStart(2,'0'); return `${h}:${m}:${sec}`; }
-function numberWithCommas(x){ return x.toLocaleString(); }
+function numberWithCommas(x){ if (x===null || x===undefined || isNaN(x)) return '—'; try{ return x.toLocaleString(); }catch(e){ return String(x); } }
 
-function updateOverlay(){ /* No-op */ }
+function updateOverlay(){ /* No-op kept for compatibility */ }
 function showOverlay(){ /* No-op */ }
 function hideOverlay(){ /* No-op */ }
 
 // --- UX: Input Formatting (for EXP) ---
 function formatNumberInput(inputElement) {
-    let value = inputElement.val().replace(/,/g, '');
-    if (value === '' || isNaN(value)) {
-        inputElement.val('');
+    let value = (inputElement.val() || "").toString().replace(/,/g, '');
+    if (value === '') {
+        // keep empty (don't force clear) - caller can decide
         return;
     }
-    inputElement.val(parseFloat(value).toLocaleString());
+    const num = Number(value);
+    if (isNaN(num)) {
+        // don't clear, leave the raw typed value (we rely on tempEndingExpValue)
+        return;
+    }
+    inputElement.val(num.toLocaleString());
 }
 
 // --- Local Storage Functions ---
 function saveSessionDetails() {
-    const rawStartingExp = $('#startingExp').val().replace(/,/g, '');
+    const rawStartingExp = ($('#startingExp').val() || '').toString().replace(/,/g, '');
     const details = {
         level: $('#noteLevel').val(),
         class: $('#noteClass').val(),
@@ -826,6 +836,7 @@ function loadSessionFromHistory(data) {
     $('#resHour').text(numberWithCommas(Math.round(data.perHour)));
     $('#res30').text(numberWithCommas(Math.round(data.perHour/2)));
     $('#res10').text(numberWithCommas(Math.round(data.perHour/6)));
+    $('#res1').text(numberWithCommas(Math.round(data.perHour/60)));
     
     // Best Rate and Avg Rate are handled by updateComparativeRates() 
     
@@ -905,8 +916,8 @@ function addHistory(data){
 
 
 function performCalculation(){
-  const start=parseFloat($('#startingExp').val().replace(/,/g, '')); 
-  const end=parseFloat($modalEndingExp.val().replace(/,/g, '')); 
+  const start=parseFloat($('#startingExp').val().replace(/,/g, '')) || 0; 
+  const end=parseFloat($modalEndingExp.val().replace(/,/g, '')) || 0; 
   
   if(isNaN(start)||isNaN(end)||end<start){ 
     alert('Ending EXP must be >= Starting EXP'); 
@@ -923,6 +934,7 @@ function performCalculation(){
   $('#resHour').text(numberWithCommas(Math.round(perHour)));
   $('#res30').text(numberWithCommas(Math.round(perHour/2)));
   $('#res10').text(numberWithCommas(Math.round(perHour/6)));
+  $('#res1').text(numberWithCommas(Math.round(perHour/60)));
   
   addHistory({start,end,gained,perHour});
   
@@ -931,17 +943,62 @@ function performCalculation(){
   saveSessionDetails(); 
   
   $expModal.fadeOut(200); 
+  tempEndingExpValue = ""; // clear temp after calculation
 }
 
 function showEndingExpModal() {
+    tempEndingExpValue = ""; // reset temp
+    $modalEndingExp.val(''); // clear input on open
     $expModal.fadeIn(200);
-    $modalEndingExp.val('');
-    $modalEndingExp.focus();
+    $expModal.attr('aria-hidden', 'false');
+    setTimeout(()=> { $modalEndingExp.focus(); }, 220);
 }
+
+// ---- FIX: modal protection so clicking outside won't clear the typed value ----
+$(document).on('input', '#modalEndingExp', function(){
+    tempEndingExpValue = $(this).val();
+});
+
+// On blur: if value is empty but we have tempEndingExpValue, restore and format.
+// Otherwise format normally.
+$('#modalEndingExp').on('blur', function(){
+    const $this = $(this);
+    const raw = ($this.val() || '').toString();
+    if ((raw === '' || isNaN(raw.replace(/,/g,''))) && tempEndingExpValue) {
+        // restore typed value
+        $this.val(tempEndingExpValue);
+        formatNumberInput($this);
+    } else {
+        // format only if numeric
+        formatNumberInput($this);
+    }
+});
+
+// clicking the modal backdrop SHOULD NOT close the modal nor clear typed value
+$('#expModal').on('click', function(e){
+    if (e.target === this) {
+        // restore typed value to input (if any) and refocus input
+        if (tempEndingExpValue) {
+            $modalEndingExp.val(tempEndingExpValue);
+            formatNumberInput($modalEndingExp);
+        }
+        // keep modal open, focus input
+        setTimeout(()=> { $modalEndingExp.focus(); }, 0);
+    }
+});
+
+// Modal Calculate button
+$modalSubmitBtn.on('click', function(){
+    // ensure we format before calculating
+    formatNumberInput($modalEndingExp);
+    performCalculation();
+});
+
+// ---- End modal protection ----
 
 function startCountdown(){
   const min=parseInt($('#countMin').val(),10);
-  const startExp=$('#startingExp').val().replace(/,/g, ''); 
+  const startExp=($('#startingExp').val() || '').replace(/,/g, ''); 
   if(isNaN(min)||min<=0){ alert('Enter valid minutes'); return; }
   if(!startExp || isNaN(parseFloat(startExp))){ alert('Enter starting EXP'); return; }
   
@@ -1019,7 +1076,7 @@ function runMain(){
 }
 
 function pauseCountdown(){ 
-    clearInterval(timerInterval); timerInterval=null; 
+    if (timerInterval) { clearInterval(timerInterval); timerInterval=null; }
     $progressLineContainer.addClass('paused'); 
     updateControlButtons('paused'); 
     updateTimerStatus('paused');
@@ -1032,10 +1089,8 @@ function resumeCountdown(){
 }
 
 function forceStop(){ 
-  clearInterval(timerInterval); 
-  timerInterval=null; 
-  clearInterval(preInterval); 
-  preInterval=null; 
+  if (timerInterval) { clearInterval(timerInterval); timerInterval=null; }
+  if (preInterval) { clearInterval(preInterval); preInterval=null; }
   hideOverlay(); 
   updateControlButtons('idle'); 
   updateTimerStatus('idle');
@@ -1050,8 +1105,8 @@ function forceStop(){
 }
 
 function resetCountdown(){ 
-  clearInterval(timerInterval); timerInterval=null; 
-  clearInterval(preInterval); preInterval=null; 
+  if (timerInterval) { clearInterval(timerInterval); timerInterval=null; }
+  if (preInterval) { clearInterval(preInterval); preInterval=null; }
   remainingSeconds=0; elapsedSeconds=0; totalSeconds=0; 
   $timeDisplay.val('00:00:00'); 
   updateControlButtons('idle'); 
@@ -1119,9 +1174,8 @@ $('#startingExp').on('blur', function() {
     formatNumberInput($(this));
 }).on('change keyup', saveSessionDetails);
 
-$('#modalEndingExp').on('blur', function() {
-    formatNumberInput($(this));
-});
+// modal input formatting - already handled above with safer logic
+// $('#modalEndingExp').on('blur', function() { formatNumberInput($(this)); }); // replaced by safer handler
 
 // Event Listeners: Clear Buttons
 $('.clear-input').click(function() {
