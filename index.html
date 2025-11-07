@@ -59,14 +59,27 @@ body.light .card {
   box-shadow: var(--shadow);
 }
 
-h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 15px 0;
-  color: var(--text-dark);
+/* 💡 NEW: Header with Button */
+.header-with-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
 }
-body.light h3 {
-  color: var(--text-light);
+.header-with-button h3 {
+    margin-bottom: 0;
+}
+.header-button {
+    font-size: 12px;
+    padding: 6px 10px;
+    background: var(--glass-dark);
+    color: var(--muted-dark);
+    border: 1px solid var(--muted-dark);
+}
+body.light .header-button {
+    background: var(--glass-light);
+    color: var(--muted-light);
+    border: 1px solid var(--muted-light);
 }
 
 .section {
@@ -183,8 +196,9 @@ button:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-/* --- EXP Report Styling (6 Tiles) --- */
+/* --- EXP Report Styling (8 Tiles) --- */
 .report-grid {
+    /* 💡 UPDATED: Grid for 8 tiles */
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
     gap: 10px;
@@ -209,6 +223,14 @@ body.light .report-item {
 body.light .report-item .value {
     color: var(--accent-light);
 }
+/* 💡 NEW: Style for Best/Average Rate */
+.report-item.rate-analysis .value {
+    color: #34c759;
+}
+.report-item.best-rate .value {
+    color: #ffd60a; 
+}
+
 .report-item .label {
     font-size: 11px;
     color: var(--muted-dark);
@@ -232,10 +254,9 @@ body.light .report-item .label {
 }
 
 .history-item {
-  /* 💡 UI FIX: Use Grid to separate Content and Button clearly */
   display: grid;
   grid-template-columns: 1fr auto; 
-  column-gap: 15px; /* Add gap between content and button */
+  column-gap: 15px; 
   padding: 12px 15px;
   border-radius: var(--border-radius-md);
   margin: 0;
@@ -256,7 +277,6 @@ body.light .history-item {
 }
 
 .history-item-content {
-    /* Inner grid for details and report summary */
     display: grid;
     grid-template-columns: 1.5fr 1fr;
     gap: 10px;
@@ -295,7 +315,7 @@ body.light .history-item .report-summary .rate {
 
 .history-item .load-btn-container {
     display: flex;
-    align-items: center; /* 💡 UI FIX: Vertically center the button */
+    align-items: center; 
     justify-content: flex-end;
 }
 .history-item .load-btn {
@@ -353,7 +373,7 @@ body.light .progress-bar-line {
     background: #ff9500; 
 }
 .progress-line-container.paused .progress-bar-line {
-    background: #ff9500 !important; /* Force orange for paused state */
+    background: #ff9500 !important; 
 }
 
 
@@ -483,7 +503,7 @@ body.light input:checked + .slider { background-color: var(--accent-light); }
 input:checked + .slider:before { transform: translateX(26px); content: "☀️"; }
 
 
-/* Modal for Ending EXP */
+/* Modal for Ending EXP & Confirmation */
 .modal {
   display: none;
   position: fixed;
@@ -563,13 +583,18 @@ body.light .modal-content {
     </div>
     
     <div class="panel">
-      <h3>📈 EXP Report</h3>
+      <div class="header-with-button">
+          <h3>📈 EXP Report</h3>
+          <button id="clearReportBtn" class="header-button ghost">Clear Report</button>
+      </div>
       <div class="card-group">
         <div class="report-grid">
           <div class="report-item"><span class="label">Starting EXP</span><span class="value" id="resStart">—</span></div>
           <div class="report-item"><span class="label">Ending EXP</span><span class="value" id="resEnd">—</span></div>
           <div class="report-item"><span class="label">Total EXP Gained</span><span class="value" id="resTotal">—</span></div>
           <div class="report-item"><span class="label">EXP / Hour (Rate)</span><span class="value" id="resHour">—</span></div>
+          <div class="report-item best-rate"><span class="label">Best Rate / Hour</span><span class="value" id="resBestRate">—</span></div>
+          <div class="report-item rate-analysis"><span class="label">Avg Rate (Last 10)</span><span class="value" id="resAvgRate">—</span></div>
           <div class="report-item"><span class="label">EXP / 30 min</span><span class="value" id="res30">—</span></div>
           <div class="report-item"><span class="label">EXP / 10 min</span><span class="value" id="res10">—</span></div>
         </div>
@@ -585,19 +610,33 @@ body.light .modal-content {
         </div>
       </div>
       
-      <h3>🕒 History Log</h3>
+      <div class="header-with-button">
+          <h3>🕒 History Log</h3>
+          <button id="clearHistoryBtn" class="header-button warn">Clear History</button>
+      </div>
       <div class="history-container" id="history"></div>
     </div>
   </div>
-  <div class="foot">EXP Countdown Tracker • Made with Lisa ❤️ by Animal Guild</div>
+  <div class="foot">EXP Countdown Tracker • Made with ❤️ by Animal Guild</div>
 </div>
 
 <div id="expModal" class="modal">
     <div class="modal-content card">
         <h3>Time's Up! Enter Ending EXP</h3>
-        <div class="row"><label for="modalEndingExp">Ending EXP</label><input id="modalEndingExp" type="number" min="0" placeholder="Enter final EXP here"></div>
+        <div class="row"><label for="modalEndingExp">Ending EXP</label><input id="modalEndingExp" type="text" placeholder="Enter final EXP here"></div>
         <div class="controls" style="margin-top: 20px; justify-content: flex-end;">
             <button id="modalSubmitBtn" style="flex: 1;">Calculate</button>
+        </div>
+    </div>
+</div>
+
+<div id="confirmModal" class="modal">
+    <div class="modal-content card">
+        <h3>Confirm Clear History</h3>
+        <p>Are you sure you want to delete ALL recorded session history? This action cannot be undone.</p>
+        <div class="controls" style="margin-top: 20px; justify-content: flex-end;">
+            <button id="confirmCancelBtn" class="ghost" style="flex: 1;">Cancel</button>
+            <button id="confirmClearBtn" class="warn" style="flex: 1;">Yes, Clear History</button>
         </div>
     </div>
 </div>
@@ -618,6 +657,7 @@ const $modalSubmitBtn = $('#modalSubmitBtn');
 const $timerStatus = $('#timerStatus'); 
 const $progressLineContainer = $('#progressLineContainer');
 const $timerProgressLine = $('#timerProgressLine');
+const $confirmModal = $('#confirmModal');
 
 const $soundPing = $('#soundPing')[0]; 
 const $soundChime = $('#soundChime')[0]; 
@@ -625,7 +665,10 @@ const $soundChime = $('#soundChime')[0];
 const DETAILS_KEY = 'exp_tracker_details';
 const HISTORY_KEY = 'exp_tracker_history';
 
-// --- NEW FUNCTION: Play Sound ---
+// Report fields (for Clear Report)
+const reportFields = ['resStart', 'resEnd', 'resTotal', 'resHour', 'res30', 'res10', 'resBestRate', 'resAvgRate'];
+
+
 function playSound(audioElement) {
     if (audioElement) {
         audioElement.currentTime = 0; 
@@ -633,7 +676,6 @@ function playSound(audioElement) {
     }
 }
 
-// Progress Line Setup
 function setProgress(percent) {
     const progressWidth = Math.min(100, percent); 
     $timerProgressLine.css('width', `${progressWidth}%`);
@@ -646,7 +688,7 @@ function updateOverlay(){ /* No-op */ }
 function showOverlay(){ /* No-op */ }
 function hideOverlay(){ /* No-op */ }
 
-// --- UX: Input Formatting ---
+// --- UX: Input Formatting (for EXP) ---
 function formatNumberInput(inputElement) {
     let value = inputElement.val().replace(/,/g, '');
     if (value === '' || isNaN(value)) {
@@ -690,25 +732,50 @@ function loadSessionDetails() {
 
 function saveHistory() {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(historyData));
+    updateComparativeRates(); // Update Best/Average Rate every time history changes
 }
 
 function loadHistory() {
     const storedHistory = localStorage.getItem(HISTORY_KEY);
     if (storedHistory) {
         historyData = JSON.parse(storedHistory);
+        $('#history').empty();
         historyData.slice().reverse().forEach((data, index) => {
-            // Pass the original index for loading
             renderHistoryItem(data, historyData.length - 1 - index); 
         });
     }
+    updateComparativeRates();
 }
+
+// 💡 NEW: Update Best/Average Rate Tiles
+function updateComparativeRates() {
+    if (historyData.length === 0) {
+        $('#resBestRate').text('—');
+        $('#resAvgRate').text('—');
+        return;
+    }
+
+    // 1. Best EXP Rate
+    let maxRate = 0;
+    historyData.forEach(item => {
+        if (item.perHour > maxRate) {
+            maxRate = item.perHour;
+        }
+    });
+    $('#resBestRate').text(numberWithCommas(Math.round(maxRate)));
+
+    // 2. Average EXP Rate (Last 10 sessions)
+    const last10 = historyData.slice(-10);
+    const totalRate = last10.reduce((sum, item) => sum + item.perHour, 0);
+    const avgRate = totalRate / last10.length;
+    $('#resAvgRate').text(numberWithCommas(Math.round(avgRate)));
+}
+
 
 // --- ฟังก์ชันควบคุมสถานะปุ่ม ---
 function updateControlButtons(state) {
-    // Disable all buttons initially
     $('#startBtn, #pauseBtn, #resumeBtn, #forceStopBtn, #resetBtn').attr('disabled', true);
     
-    // Reset background colors to default/accent
     $('#startBtn').css('background', 'var(--accent-dark)');
     $('#pauseBtn').css('background', 'var(--accent-dark)');
     $('#resumeBtn').css('background', 'var(--accent-dark)');
@@ -716,15 +783,17 @@ function updateControlButtons(state) {
 
     if (state === 'idle') {
         $('#startBtn').attr('disabled', false).css('background', 'var(--accent-dark)');
-        // Reset button remains disabled until a calculation is performed or a timer has run/been stopped.
+        // Reset button only enabled if there was a previous session to reset/clear
+        $('#resetBtn').attr('disabled', false); 
     } else if (state === 'running') {
         $('#pauseBtn').attr('disabled', false).css('background', '#ff9500'); 
         $('#forceStopBtn, #resetBtn').attr('disabled', false);
     } else if (state === 'paused') {
         $('#resumeBtn').attr('disabled', false).css('background', '#34c759'); 
         $('#forceStopBtn, #resetBtn').attr('disabled', false);
-    } else if (state === 'pre-running') { // New state for pre-interval
-        $('#resetBtn').attr('disabled', false); // Allow reset/cancel during pre-interval
+    } else if (state === 'pre-running') { 
+        // Start is disabled, only Reset (Cancel) is enabled
+        $('#resetBtn').attr('disabled', false); 
     }
 }
 
@@ -739,7 +808,6 @@ function updateTimerStatus(status) {
     }
 }
 
-// 🚀 Load session from history log (EXP Report loading verified)
 function loadSessionFromHistory(data) {
     // 1. Update Session Details
     $('#noteLevel').val(data.details.level || '');
@@ -749,9 +817,9 @@ function loadSessionFromHistory(data) {
     
     // 2. Update Inputs for next run (duration and starting exp)
     $('#countMin').val(data.details.countMin || '5');
-    $('#startingExp').val(numberWithCommas(data.end)); // Set starting EXP for next run to the ending EXP of the loaded session
+    $('#startingExp').val(numberWithCommas(data.end)); 
     
-    // 3. Update EXP Report (6 tiles)
+    // 3. Update EXP Report (6 tiles + Best/Avg)
     $('#resStart').text(numberWithCommas(data.start)); 
     $('#resEnd').text(numberWithCommas(data.end));     
     $('#resTotal').text(numberWithCommas(data.gained));
@@ -759,13 +827,14 @@ function loadSessionFromHistory(data) {
     $('#res30').text(numberWithCommas(Math.round(data.perHour/2)));
     $('#res10').text(numberWithCommas(Math.round(data.perHour/6)));
     
+    // Best Rate and Avg Rate are handled by updateComparativeRates() 
+    
     saveSessionDetails(); 
 
     alert(`Session from ${new Date(data.timestamp).toLocaleTimeString()} loaded to Report and Details.`);
 }
 
 
-// 🚀 UPDATED: Added Load Button and index
 function renderHistoryItem(data, index) {
     const sessionDetails = data.details || { level: '-', class: '-', map: '-', party: 'Solo', countMin: 5 };
     
@@ -801,7 +870,6 @@ function renderHistoryItem(data, index) {
 }
 
 
-// --- ฟังก์ชันเพิ่ม History Log ---
 function addHistory(data){
   const sessionDetails = {
     level: $('#noteLevel').val() || '-',
@@ -826,7 +894,7 @@ function addHistory(data){
   }
   
   historyData.push(logData);
-  saveHistory(); 
+  saveHistory(); // Calls updateComparativeRates()
   
   // Re-render history for correct index mapping after shift
   $('#history').empty();
@@ -838,7 +906,7 @@ function addHistory(data){
 
 function performCalculation(){
   const start=parseFloat($('#startingExp').val().replace(/,/g, '')); 
-  const end=parseFloat($modalEndingExp.val()); 
+  const end=parseFloat($modalEndingExp.val().replace(/,/g, '')); 
   
   if(isNaN(start)||isNaN(end)||end<start){ 
     alert('Ending EXP must be >= Starting EXP'); 
@@ -871,7 +939,6 @@ function showEndingExpModal() {
     $modalEndingExp.focus();
 }
 
-// 🚀 UPDATED: Button Control during Pre-interval
 function startCountdown(){
   const min=parseInt($('#countMin').val(),10);
   const startExp=$('#startingExp').val().replace(/,/g, ''); 
@@ -996,7 +1063,33 @@ function resetCountdown(){
   $progressLineContainer.removeClass('warning');
   $progressLineContainer.removeClass('paused'); 
   $timeDisplay.css('background', $('body').hasClass('light') ? 'var(--accent-light)' : 'var(--accent-dark)');
+  
+  // 💡 NEW: Clear Report on Reset (as a bonus UX)
+  clearReport();
 }
+
+// 💡 NEW: Clear Report Function
+function clearReport() {
+    reportFields.forEach(id => {
+        $(`#${id}`).text('—');
+    });
+}
+
+// 💡 NEW: Clear History Functions
+function clearHistory() {
+    $confirmModal.fadeOut(200); 
+    
+    // Clear history
+    historyData = [];
+    localStorage.removeItem(HISTORY_KEY);
+    $('#history').empty();
+    
+    // Reset report tiles (including best/avg rate)
+    clearReport();
+    
+    alert('Session history cleared.');
+}
+
 
 $('#startBtn').click(startCountdown);
 $('#pauseBtn').click(pauseCountdown);
@@ -1005,13 +1098,30 @@ $('#forceStopBtn').click(forceStop);
 $('#resetBtn').click(resetCountdown);
 $modalSubmitBtn.click(performCalculation);
 
+// 💡 NEW: Clear Report Button Event
+$('#clearReportBtn').click(clearReport);
+
+// 💡 NEW: Clear History Button Events
+$('#clearHistoryBtn').click(() => {
+    $confirmModal.fadeIn(200); 
+});
+$('#confirmCancelBtn').click(() => {
+    $confirmModal.fadeOut(200); 
+});
+$('#confirmClearBtn').click(clearHistory);
+
+
 // Event Listeners for Sticky Details
 $('#noteLevel, #noteClass, #noteMap, #noteParty, #countMin').on('change keyup', saveSessionDetails);
 
-// Starting EXP: จัดรูปแบบเมื่อพิมพ์เสร็จ และบันทึก
+// Starting/Ending EXP: จัดรูปแบบเมื่อพิมพ์เสร็จ และบันทึก
 $('#startingExp').on('blur', function() {
     formatNumberInput($(this));
 }).on('change keyup', saveSessionDetails);
+
+$('#modalEndingExp').on('blur', function() {
+    formatNumberInput($(this));
+});
 
 // Event Listeners: Clear Buttons
 $('.clear-input').click(function() {
@@ -1025,11 +1135,9 @@ $('.clear-input').click(function() {
 
 $('#toggleMode').click(()=>{
   const isLight = $('body').toggleClass('light').hasClass('light');
-  // Use 'pre-running' state check for correct button update during pre-interval
   const state = timerInterval ? 'running' : preInterval ? 'pre-running' : 'idle'; 
   updateControlButtons(state); 
 
-  // ปรับสีพื้นหลัง Time Display เมื่อเปลี่ยนโหมด
   if (!timerInterval) { 
     $timeDisplay.css('background', isLight ? 'var(--accent-light)' : 'var(--accent-dark)');
   }
@@ -1042,7 +1150,7 @@ $(document).ready(() => {
     
     // โหลดข้อมูลเมื่อเริ่มต้น
     loadSessionDetails();
-    loadHistory();
+    loadHistory(); 
 });
 </script>
 </body>
