@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>EXP Countdown Tracker</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1720;
+    --panel:#111827;
+    --accent:#2b6f9e;
+    --muted:#9aa6b2;
+    --text:#e6eef6;
+    --glass: rgba(255,255,255,0.03);
+  }
+  body{
+    margin:0; font-family:Inter, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background:linear-gradient(180deg,var(--bg),#071022);
+    color:var(--text);
+    display:flex; align-items:center; justify-content:center; min-height:100vh;
+  }
+  .card{
+    width:820px; max-width:95%;
+    background:linear-gradient(180deg,var(--panel), #0b1220);
+    border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.03);
+    display:grid; grid-template-columns: 1fr 360px; gap:18px;
+  }
+
+  /* left (controls) */
+  .form {
+    padding:10px 6px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .row{ display:flex; gap:8px; align-items:center; }
+  label{ width:110px; color:var(--muted); font-size:13px; }
+  input[type="number"], input[type="text"], select {
+    background:var(--glass); border:1px solid rgba(255,255,255,0.04); color:var(--text);
+    padding:8px 10px; border-radius:8px; flex:1;
+    font-size:14px;
+  }
+  input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .small{ width:100px; }
+  .controls { display:flex; gap:8px; }
+  button {
+    background:var(--accent); color:#fff; border:none; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600;
+  }
+  button.ghost { background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted); }
+  button.warn { background:#c44; }
+  button:disabled { opacity:0.45; cursor:not-allowed; }
+
+  /* right (results + notes) */
+  .panel{ padding:12px; border-radius:8px; background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.02); }
+  h3{ margin:0 0 6px; font-size:15px; color:#dceefb; }
+  .result-list{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .result-item{ display:flex; justify-content:space-between; padding:10px; background:rgba(255,255,255,0.01); border-radius:8px; font-weight:600; }
+  .muted{ color:var(--muted); font-weight:500; font-size:13px; }
+
+  /* big overlay countdown */
+  #big-count {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
+    z-index:1200; color:#fff; mix-blend-mode:screen;
+    font-weight:800; text-align:center;
+  }
+  #big-count .num {
+    font-size:120px; line-height:1; color:#f3f8ff; text-shadow: 0 0 30px rgba(43,111,158,0.6);
+    background: linear-gradient(180deg,#d4f0ff,#8ec8e8);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  /* modal for ending exp */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(3,6,11,0.6); display:none; align-items:center; justify-content:center; z-index:1300;
+  }
+  .modal{
+    background:#071122; padding:18px; border-radius:10px; width:360px; border:1px solid rgba(255,255,255,0.04);
+  }
+  .modal h4{ margin:0 0 8px; color:#dff5ff; }
+  .modal .actions{ display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+  .note-area input { width:100%; }
+
+  /* footer small */
+  .foot { grid-column:1 / -1; font-size:12px; color:var(--muted); text-align:center; margin-top:6px; }
+  @media(max-width:860px){ .card{ grid-template-columns: 1fr; } }
+  
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="form">
+      <div class="row">
+        <label>Starting EXP</label>
+        <input id="startingExp" type="number" min="0" placeholder="e.g. 123456789" />
+      </div>
+
+      <div class="row">
+        <label>Countdown (min)</label>
+        <input id="countMin" type="number" min="1" class="small" value="5" />
+        <div style="flex:1; color:var(--muted); font-size:13px;">Set how many minutes to run the test</div>
+      </div>
+
+      <div class="row">
+        <label>Controls</label>
+        <div class="controls">
+          <button id="startBtn">Start Countdown</button>
+          <button id="forceStopBtn" class="warn" disabled>Force Stop</button>
+          <button id="resetBtn" class="ghost" disabled>Reset</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Remaining</label>
+        <input id="timeDisplay" type="text" disabled value="00:00:00"/>
+      </div>
+
+      <div class="row">
+        <label>Ending EXP</label>
+        <input id="endingExp" type="number" min="0" placeholder="-" disabled />
+      </div>
+
+      <div class="row">
+        <label>Copy Note</label>
+        <input id="copyNote" type="text" placeholder="Optional message before report" />
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button id="copyBtn" disabled>Copy Report</button>
+        <button id="calcBtn" disabled class="ghost">Calculate</button>
+      </div>
+
+      <div style="margin-top:10px;" class="muted">Notes: Ending EXP field appears only when countdown ends or when you press Force Stop. After entering, press Calculate.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Report</h3>
+      <div class="result-list">
+        <div class="result-item"><div class="muted">Total EXP Gained</div><div id="resTotal">—</div></div>
+        <div class="result-item"><div class="muted">EXP / hour</div><div id="resHour">—</div></div>
+        <div class="result-item"><div class="muted">EXP / 30 min</div><div id="res30">—</div></div>
+        <div class="result-item"><div class="muted">EXP / 10 min</div><div id="res10">—</div></div>
+        <div class="result-item"><div class="muted">EXP / 1 min</div><div id="res1">—</div></div>
+      </div>
+
+      <h3 style="margin-top:14px;">Session Info</h3>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+        <div style="display:flex; gap:8px;">
+          <label style="width:80px; color:var(--muted)">Level</label><input id="noteLevel" type="text" placeholder="e.g. 250" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <label style="width:80px; color:var(--muted)">Class</label><input id="noteClass" type="text" placeholder="e.g. Bowmaster" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <label style="width:80px; color:var(--muted)">Map</label><input id="noteMap" type="text" placeholder="e.g. Oblivion 4" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <label style="width:80px; color:var(--muted)">Monster</label><input id="noteMonster" type="text" placeholder="e.g. Obsidian Guardian" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <label style="width:80px; color:var(--muted)">Party Size</label>
+          <select id="noteParty">
+            <option value="Solo">Solo</option>
+            <option value="2">2 Players</option>
+            <option value="3">3 Players</option>
+            <option value="4">4 Players</option>
+            <option value="5">5 Players</option>
+            <option value="6">6 Players</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button id="saveNotes" class="ghost">Save Notes</button>
+        <div style="flex:1"></div>
+        <div class="muted">Status: <span id="status">Idle</span></div>
+      </div>
+    </div>
+
+    <div class="foot">EXP Countdown Tracker • Enter starting EXP & minutes → Start • Force Stop to end early</div>
+	<div class="foot">Made with Lisa ❤️ by <span style="color:#59a7ff;">Animal Guild</span></div>
+  </div>
+
+  <!-- big countdown overlay -->
+  <div id="big-count" style="display:none;">
+    <div class="num" id="big-num">5</div>
+  </div>
+
+  <!-- modal for entering ending EXP -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h4>Enter Ending EXP</h4>
+      <div style="display:flex; gap:8px;">
+        <input id="modalEnding" type="number" min="0" placeholder="Ending EXP" />
+      </div>
+      <div class="actions">
+        <button id="modalCancel" class="ghost">Cancel</button>
+        <button id="modalOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* -------------------------
+   small utilities & state
+   -------------------------*/
+let startTime = null;               // Date when main countdown started
+let totalSeconds = 0;               // configured duration in seconds
+let remainingSeconds = 0;           // remaining seconds in main countdown
+let timerInterval = null;
+let preInterval = null;             // pre-start 5..1
+let finalCountPlaying = false;      // whether we are in final 5..1 play
+let preCountPlaying = false;
+let elapsedSeconds = 0;             // actual elapsed seconds since main start (if stopped early will be less)
+let modalOpen = false;
+
+const $timeDisplay = $('#timeDisplay');
+const $status = $('#status');
+const $startBtn = $('#startBtn');
+const $forceStopBtn = $('#forceStopBtn');
+const $resetBtn = $('#resetBtn');
+const $calcBtn = $('#calcBtn');
+const $copyBtn = $('#copyBtn');
+const $endingExp = $('#endingExp');
+const $modal = $('#modal');
+const $modalEnding = $('#modalEnding');
+
+/* -------------------------
+   audio: tick using WebAudio (short beep)
+   -------------------------*/
+function playTickShort() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 880; // beep pitch
+    g.gain.value = 0.0001;
+    o.connect(g);
+    g.connect(ctx.destination);
+    // ramp up quickly to avoid click
+    g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.005);
+    o.start();
+    // stop soon
+    setTimeout(()=> {
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.03);
+      setTimeout(()=>{ try { o.stop(); ctx.close(); } catch(e){} }, 40);
+    }, 60);
+  } catch (e) {
+    // audio may be blocked on some browsers without interaction; ignore
+    // console.log('audio error', e);
+  }
+}
+
+/* -------------------------
+   big-number overlay
+   -------------------------*/
+function showBigNumber(n) {
+  $('#big-num').text(n);
+  $('#big-count').fadeIn(80);
+}
+function hideBigNumber() {
+  $('#big-count').fadeOut(200);
+}
+
+/* -------------------------
+   format seconds -> HH:MM:SS
+   -------------------------*/
+function fmtSeconds(s) {
+  s = Math.max(0, Math.floor(s));
+  const h = Math.floor(s/3600).toString().padStart(2,'0');
+  const m = Math.floor((s%3600)/60).toString().padStart(2,'0');
+  const sec = Math.floor(s%60).toString().padStart(2,'0');
+  return `${h}:${m}:${sec}`;
+}
+
+/* -------------------------
+   pre-start 5..1 then start main countdown
+   -------------------------*/
+function runPreStartThenMain() {
+  if (preCountPlaying) return;
+  preCountPlaying = true;
+  $status.text('Pre-countdown');
+  let n = 5;
+  showBigNumber(n);
+  playTickShort();
+  preInterval = setInterval(()=>{
+    n--;
+    if (n > 0) {
+      showBigNumber(n);
+      playTickShort();
+    } else {
+      clearInterval(preInterval);
+      preCountPlaying = false;
+      hideBigNumber();
+      // start main countdown
+      startMainCountdown();
+    }
+  }, 1000);
+}
+
+/* -------------------------
+   start main countdown using remainingSeconds
+   -------------------------*/
+function startMainCountdown() {
+  if (timerInterval) return;
+  // configure
+  const min = parseInt($('#countMin').val(), 10);
+  if (isNaN(min) || min <= 0) { alert('Enter valid minutes'); return; }
+  totalSeconds = min * 60;
+  remainingSeconds = totalSeconds;
+  elapsedSeconds = 0;
+  startTime = new Date();
+  timerInterval = setInterval(mainTick, 1000);
+  $startBtn.disabled = true;
+  $startBtn.setAttribute && $startBtn.setAttribute('disabled','disabled');
+  $('#startBtn').attr('disabled', true);
+  $('#forceStopBtn').attr('disabled', false);
+  $('#resetBtn').attr('disabled', false);
+  $('#calcBtn').attr('disabled', true);
+  $('#copyBtn').attr('disabled', true);
+  $status.text('Running');
+  // display immediately
+  $timeDisplay.val(fmtSeconds(remainingSeconds));
+}
+
+/* -------------------------
+   mainTick - called each second while counting down
+   when remaining reaches 5 -> play 5..1 overlay sequence (but need to sync)
+   -------------------------*/
+function mainTick() {
+  if (remainingSeconds <= 0) {
+    // done (shouldn't happen here)
+    clearInterval(timerInterval);
+    timerInterval = null;
+    onCountdownComplete();
+    return;
+  }
+
+  remainingSeconds--;
+  elapsedSeconds++;
+  $timeDisplay.val(fmtSeconds(remainingSeconds));
+
+  // trigger final 5..1 overlay when remainingSeconds hits 5
+  if (remainingSeconds === 5 && !finalCountPlaying) {
+    // play 5..1 visually and with tick synchronized with last 5 seconds
+    finalCountPlaying = true;
+    // show overlay but DO NOT stop the main countdown: we want the remainingSeconds to continue decreasing.
+    // We'll display numbers according to remainingSeconds: when remainingSeconds=5 show 5, ... 1
+    // Because mainTick runs every second, we can simply rely on that to update big number.
+    showBigNumber(5);
+    playTickShort();
+    // The overlay update will be done by checking remainingSeconds in another small handler:
+    const finalInterval = setInterval(()=>{
+      if (remainingSeconds > 0 && remainingSeconds <= 5) {
+        showBigNumber(remainingSeconds);
+        playTickShort();
+      } else {
+        // Either ended earlier or finalCountdown done
+      }
+      if (remainingSeconds <= 0) {
+        clearInterval(finalInterval);
+        finalCountPlaying = false;
+        hideBigNumber();
+      }
+    }, 1000);
+  }
+
+  if (remainingSeconds <= 0) {
+    // finish
+    clearInterval(timerInterval);
+    timerInterval = null;
+    onCountdownComplete();
+  }
+}
+
+/* -------------------------
+   on countdown complete -> open modal for ending exp
+   -------------------------*/
+function onCountdownComplete() {
+  $timeDisplay.val('00:00:00');
+  $status.text('Completed');
+  // open modal automatically
+  openEndingModal();
+}
+
+/* -------------------------
+   Force Stop -> stop everything and open modal
+   -------------------------*/
+function forceStop() {
+  // If pre-countdown is playing, stop it and don't run main
+  if (preInterval) { clearInterval(preInterval); preInterval = null; preCountPlaying = false; hideBigNumber(); }
+  // clear main timer if any
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  // calculate elapsedSeconds so far (if main started)
+  // remainingSeconds may be set; if not started, elapsedSeconds is 0
+  $status.text('Forced Stop');
+  $('#forceStopBtn').attr('disabled', true);
+  openEndingModal();
+}
+
+/* -------------------------
+   open and handle modal
+   -------------------------*/
+function openEndingModal() {
+  modalOpen = true;
+  $('#modalEnding').val('');
+  $('#modal').css('display','flex');
+  $('#modalEnding').focus();
+  // If modal opened from completion, elapsedSeconds should be totalSeconds
+  // If forced stop and main didn't start, elapsedSeconds may be 0 => we will compute actual elapsed based on totalSeconds-elapsed if needed.
+  // If main was running, elapsedSeconds holds the seconds already elapsed.
+}
+
+/* -------------------------
+   modal handlers
+   -------------------------*/
+$('#modalCancel').on('click', function(){
+  $('#modal').hide(); modalOpen = false;
+  // keep state as stopped; user can continue or reset
+});
+$('#modalOk').on('click', function(){
+  const val = parseFloat($('#modalEnding').val());
+  $('#modal').hide(); modalOpen = false;
+  if (isNaN(val)) { alert('Enter valid Ending EXP'); return; }
+  $('#endingExp').val(val);
+  $('#endingExp').prop('disabled', false);
+  // determine elapsed time:
+  // If countdown completed normally, elapsedSeconds should equal totalSeconds.
+  // If user forced stop, elapsedSeconds is whatever progressed; if none, elapsedSeconds might be 0 — we'll compute it:
+  if (elapsedSeconds === 0 && totalSeconds>0 && $('#status').text() === 'Completed') {
+    elapsedSeconds = totalSeconds;
+  } else if (elapsedSeconds === 0 && totalSeconds>0 && $('#status').text() === 'Forced Stop') {
+    // if forced stop before main started, treat elapsed as 0 (user may have pre-stopped)
+    // but avoid division by zero -> we'll ask user to confirm they actually had time; instead use 1 second minimal
+    elapsedSeconds = Math.max(1, elapsedSeconds);
+  }
+  // enable calc & auto-calc now
+  $('#calcBtn').attr('disabled', false);
+  performCalculation();
+});
+
+/* -------------------------
+   calculation logic
+   -------------------------*/
+function performCalculation() {
+  const start = parseFloat($('#startingExp').val());
+  const end = parseFloat($('#endingExp').val());
+  if (isNaN(start) || isNaN(end) || end < start) {
+    alert('Please ensure Starting and Ending EXP are valid (Ending >= Starting).');
+    return;
+  }
+  // if elapsedSeconds is zero, but totalSeconds >0 and status Completed, use totalSeconds
+  if (elapsedSeconds === 0) {
+    if (totalSeconds > 0 && $('#status').text() === 'Completed') elapsedSeconds = totalSeconds;
+    else elapsedSeconds = 1; // fallback minimal
+  }
+  const gained = end - start;
+  const perHour = gained * (3600 / elapsedSeconds);
+  const per30 = perHour * 0.5;
+  const per10 = perHour * (10/60);
+  const per1 = perHour / 60;
+
+  // show results formatted
+  $('#resTotal').text(numberWithCommas(gained));
+  $('#resHour').text(numberWithCommas(Math.round(perHour)));
+  $('#res30').text(numberWithCommas(Math.round(per30)));
+  $('#res10').text(numberWithCommas(Math.round(per10)));
+  $('#res1').text(numberWithCommas(Math.round(per1)));
+
+  $('#copyBtn').attr('disabled', false);
+  $('#calcBtn').attr('disabled', true);
+  $status.text('Result Ready');
+}
+
+/* -------------------------
+   helpers
+   -------------------------*/
+function numberWithCommas(x) {
+  if (x === null || x === undefined) return '—';
+  return x.toLocaleString();
+}
+
+/* -------------------------
+   UI button wiring
+   -------------------------*/
+$('#startBtn').on('click', function(){
+  // require startingExp present
+  const s = $('#startingExp').val();
+  if (!s || isNaN(parseFloat(s))) { alert('Enter Starting EXP first'); return; }
+  // disable manual ending input for now
+  $('#endingExp').val('').prop('disabled', true);
+  // run pre countdown then main
+  runPreStartThenMain();
+});
+
+$('#forceStopBtn').on('click', function(){
+  // force stop
+  forceStop();
+  // ensure remainingSeconds frozen for elapsedSeconds calc:
+  // elapsedSeconds remains as is
+  // set time display to reflect remaining
+  $timeDisplay.val(fmtSeconds(Math.max(0, remainingSeconds)));
+});
+
+$('#resetBtn').on('click', function(){
+  // clear intervals
+  if (preInterval) { clearInterval(preInterval); preInterval = null; preCountPlaying=false; hideBigNumber(); }
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  remainingSeconds = 0; totalSeconds = 0; elapsedSeconds = 0;
+  $timeDisplay.val('00:00:00');
+  $('#startingExp,#endingExp').val('').prop('disabled', false);
+  $('#resTotal,#resHour,#res30,#res10,#res1').text('—');
+  $('#status').text('Idle');
+  $('#forceStopBtn,#calcBtn,#copyBtn,#resetBtn').attr('disabled', true);
+  $('#startBtn').attr('disabled', false);
+  $('#modal').hide();
+});
+
+$('#calcBtn').on('click', function(){ performCalculation(); });
+
+$('#copyBtn').on('click', function(){
+  // compose report
+  const note = $('#copyNote').val().trim();
+  const level = $('#noteLevel').val().trim();
+  const cls = $('#noteClass').val().trim();
+  const map = $('#noteMap').val().trim();
+  const mon = $('#noteMonster').val().trim();
+  const party = $('#noteParty').val().trim();
+  const start = parseFloat($('#startingExp').val());
+  const end = parseFloat($('#endingExp').val());
+  const gained = end - start;
+  const perHourRaw = $('#resHour').text().replace(/,/g,'') * 1;
+  const perHour = isNaN(perHourRaw) ? 0 : perHourRaw;
+  const per30 = $('#res30').text().replace(/,/g,'') * 1;
+  const per10 = $('#res10').text().replace(/,/g,'') * 1;
+  const per1 = $('#res1').text().replace(/,/g,'') * 1;
+
+  let header = '';
+  if (note) header = note + "\n\n";
+
+  let report = header +
+`Maple EXP Report
+Level: ${level || '-'}
+Class: ${cls || '-'}
+Map: ${map || '-'}
+Monster: ${mon || '-'}
+Party Size: ${party || '-'}
+
+Starting EXP: ${numberWithCommas(start)}
+Ending EXP: ${numberWithCommas(end)}
+Total EXP gained: ${numberWithCommas(gained)}
+
+EXP/h: ${numberWithCommas(Math.round(perHour))}
+EXP/30min: ${numberWithCommas(Math.round(per30))}
+EXP/10min: ${numberWithCommas(Math.round(per10))}
+EXP/1min: ${numberWithCommas(Math.round(per1))}
+`;
+
+  navigator.clipboard.writeText(report).then(()=> {
+    alert('Report copied to clipboard.');
+  }).catch(()=> {
+    alert('Unable to copy automatically. Select and copy the report manually.');
+  });
+});
+
+/* -------------------------
+   when main countdown finishes naturally, ensure elapsedSeconds=totalSeconds
+   and open modal will auto-set modal value when user opens
+   -------------------------*/
+function ensureOnNaturalEnd() {
+  // called in onCountdownComplete handles opening modal
+}
+
+/* -------------------------
+   page load: restore saved starting exp and notes
+   -------------------------*/
+$(document).ready(function(){
+  const savedStart = localStorage.getItem('exp_start');
+  if (savedStart) $('#startingExp').val(savedStart);
+  const savedNotes = JSON.parse(localStorage.getItem('exp_notes') || "{}");
+  if (savedNotes.level) $('#noteLevel').val(savedNotes.level);
+  if (savedNotes.cls) $('#noteClass').val(savedNotes.cls);
+  if (savedNotes.map) $('#noteMap').val(savedNotes.map);
+  if (savedNotes.mon) $('#noteMonster').val(savedNotes.mon);
+  if (savedNotes.party) $('#noteParty').val(savedNotes.party);
+
+  // save start on change
+  $('#startingExp').on('input', function(){
+    localStorage.setItem('exp_start', $(this).val());
+  });
+
+  $('#saveNotes').on('click', function(){
+    const data = {
+      level: $('#noteLevel').val(),
+      cls: $('#noteClass').val(),
+      map: $('#noteMap').val(),
+      mon: $('#noteMonster').val(),
+      party: $('#noteParty').val()
+    };
+    localStorage.setItem('exp_notes', JSON.stringify(data));
+    alert('Notes saved locally.');
+  });
+
+  // disable copy/calc initially
+  $('#copyBtn').attr('disabled', true);
+  $('#calcBtn').attr('disabled', true);
+  $('#forceStopBtn').attr('disabled', true);
+  $('#resetBtn').attr('disabled', true);
+});
+
+/* -------------------------
+   Edge: if timer completes naturally, set elapsedSeconds = totalSeconds
+   and ensure modal open sets values and calculation uses proper elapsedSeconds
+   -------------------------*/
+(function watchForCompletion(){
+  const originalOnComplete = onCountdownComplete;
+  onCountdownComplete = function(){
+    // if countdown finished naturally, elapsedSeconds should be totalSeconds
+    elapsedSeconds = Math.max(elapsedSeconds, totalSeconds);
+    // show modal (which will auto-calc after OK)
+    originalOnComplete();
+  };
+})();
+</script>
+</body>
+</html>
