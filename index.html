@@ -653,8 +653,8 @@ body.light .modal-content {
 let totalSeconds=0, remainingSeconds=0, elapsedSeconds=0, timerInterval=null, preInterval=null;
 let historyData=[];
 let tempEndingExpValue = ""; // <-- store typed value while modal open
-let sessionStartExp = 0; // 💡 FIX: Global variable to store the actual starting EXP when 'Start' is pressed.
-let sessionEndingExp = 0; // NEW: Global variable to store the actual ending EXP before Smart Default takes effect.
+// 💡 FIX 1: เพิ่ม Global variable สำหรับเก็บ EXP ตั้งต้นของเซสชันที่เริ่มจับเวลา
+let sessionStartExp = 0; 
 
 const $timeDisplay=$('#timeDisplay');
 const $expModal = $('#expModal');
@@ -917,20 +917,32 @@ function addHistory(data){
 
 
 function performCalculation(){
-  // 💡 FIX: Use the stored sessionStartExp for the calculation
+  // 💡 FIX 3: ใช้ sessionStartExp ที่เก็บค่า EXP ตั้งต้นที่แท้จริงไว้เมื่อกด Start
   const start = sessionStartExp; 
-  // 💡 NEW: Store the ending EXP from the modal before formatting
   const end = parseFloat($modalEndingExp.val().replace(/,/g, '')) || 0; 
-  sessionEndingExp = end; // Store in global for potential debugging/use
-
   
   if(isNaN(start)||isNaN(end)||end<start){ 
     alert('Ending EXP must be >= Starting EXP'); 
     return; 
   }
-  if(elapsedSeconds===0) elapsedSeconds=1;
-  const gained=end-start;
-  const perHour=gained*(3600/elapsedSeconds);
+
+  // 💡 FIX 4: (Force Stop) ใช้ 'totalSeconds' (เวลาที่ตั้งไว้) แทน 'elapsedSeconds' (เวลาที่ใช้ไปจริง)
+  // เพื่อให้ Rate ถูกคำนวณตามเวลาที่วางแผนไว้ ไม่ใช่เวลาที่กดหยุด
+  let calculationSeconds = totalSeconds;
+  
+  // Fallback: ถ้า totalSeconds เป็น 0 (เช่น กด Reset แล้วเผลอกด Calculate)
+  // ให้ใช้ elapsedSeconds แทน (ซึ่งน่าจะเป็น 0 เหมือนกัน)
+  if (calculationSeconds === 0) {
+      calculationSeconds = elapsedSeconds;
+  }
+  // Fallback สุดท้าย: ป้องกันการหารด้วย 0
+  if (calculationSeconds === 0) {
+      calculationSeconds = 1; 
+  }
+
+  const gained = end-start;
+  // ใช้ calculationSeconds (ซึ่งคือ totalSeconds) ในการคำนวณ
+  const perHour = gained * (3600 / calculationSeconds);
   
   // อัปเดต EXP Report 
   $('#resStart').text(numberWithCommas(start)); 
@@ -943,7 +955,7 @@ function performCalculation(){
   
   addHistory({start,end,gained,perHour});
   
-  // **** UX: Smart Default EXP (This part is now safe to execute) ****
+  // **** UX: Smart Default EXP ****
   $('#startingExp').val(numberWithCommas(end)); 
   saveSessionDetails(); 
   
@@ -1004,13 +1016,13 @@ $modalSubmitBtn.on('click', function(){
 function startCountdown(){
   const min=parseInt($('#countMin').val(),10);
   const startExp=($('#startingExp').val() || '').replace(/,/g, ''); 
-  const rawStartExp = parseFloat(startExp); // Capture the raw numeric value
+  const rawStartExp = parseFloat(startExp); // New line to get the number
+  
   if(isNaN(min)||min<=0){ alert('Enter valid minutes'); return; }
   if(!startExp || isNaN(rawStartExp)){ alert('Enter starting EXP'); return; }
   
-  // 💡 FIX: Store the raw starting EXP value immediately upon pressing Start
+  // 💡 FIX 2: Store the raw starting EXP value immediately upon pressing Start
   sessionStartExp = rawStartExp; 
-  sessionEndingExp = 0; // Reset ending exp for the new session
   
   totalSeconds=min*60; remainingSeconds=totalSeconds; elapsedSeconds=0;
   
@@ -1111,7 +1123,6 @@ function forceStop(){
   $progressLineContainer.removeClass('paused'); 
   $timeDisplay.css('background', $('body').hasClass('light') ? 'var(--accent-light)' : 'var(--accent-dark)');
   
-  // ❌ REMOVED: sessionStartExp = 0; <--- This was resetting the Start EXP too early!
   showEndingExpModal(); 
 }
 
@@ -1119,10 +1130,6 @@ function resetCountdown(){
   if (timerInterval) { clearInterval(timerInterval); timerInterval=null; }
   if (preInterval) { clearInterval(preInterval); preInterval=null; }
   remainingSeconds=0; elapsedSeconds=0; totalSeconds=0; 
-  
-  // ❌ REMOVED: sessionStartExp = 0; 
-  sessionEndingExp = 0;
-  
   $timeDisplay.val('00:00:00'); 
   updateControlButtons('idle'); 
   updateTimerStatus('idle');
